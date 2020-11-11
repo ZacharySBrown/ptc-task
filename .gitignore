@@ -130,3 +130,5 @@ dmypy.json
 
 # Custom
 scratch/*
+data/*
+**__pycache__
