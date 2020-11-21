@@ -6,11 +6,6 @@ import torch
 import numpy as np
 from dotmap import DotMap
 
-def flatten(list_of_lists):
-    for list in list_of_lists:
-        for item in list:
-            yield item
-
 DEFAULT_TOKENIZER = DotMap({
     'tokenize': lambda x: x.split()
     }
