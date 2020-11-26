@@ -5,6 +5,8 @@ from itertools import chain
 import torch
 import numpy as np
 from dotmap import DotMap
+import string
+import pdb
 
 DEFAULT_TOKENIZER = DotMap({
     'tokenize': lambda x: x.split()
@@ -21,7 +23,8 @@ class NERMultiOutput(Dataset):
                 num_labels=1, 
                 label_scheme='BILUO', 
                 attention_to_start_end=True, 
-                max_length=128
+                max_length=128, 
+                label2idx=None
         ):
         """
         Args:
@@ -42,7 +45,7 @@ class NERMultiOutput(Dataset):
 
         self.tokens, self.labels = self._parse_conll()
 
-        self._get_label_indexes()
+        self._get_label_indexes(label2idx)
         self._encode_label_indexes()
         self.all_outside = self._get_all_outside()
 
@@ -50,14 +53,17 @@ class NERMultiOutput(Dataset):
         """
         Parse the raw text of a CONLL2003 formatted seq dataset
         """
-        raw = open(self.filepath).read().split('\n\n')
+
+        #unlabeled_punctuation = self.sep.join(['.'] + [self.OUTSIDE] * self.num_labels)
+        #raw = open(self.filepath).read().replace(unlabeled_punctuation, '\n').split('\n\n')
+        raw = open(self.filepath, encoding='utf-8').read().split('\n\n')
         lines = [[i.split(self.sep) for i in r.split('\n') if i] for r in raw]
         lines = [[i for i in j if len(i[1:]) == self.num_labels] for j in lines]
         lines = [[ll for ll in l if len(ll[0]) > 0] for l in lines]
         tokens = [[i[0] for i in j] for j in lines]
         labels = [[i[1:] for i in j] for j in lines]
 
-        tokens, labels = zip(*[(t, l) for t, l in zip(tokens, labels)])
+        tokens, labels = zip(*[(t, l) for t, l in zip(tokens, labels) if len(t) > 0])
 
         return tokens, labels
 
@@ -67,15 +73,18 @@ class NERMultiOutput(Dataset):
             all_outside.append(lkp[self.OUTSIDE])
         return all_outside
 
-    def _get_label_indexes(self):
+    def _get_label_indexes(self, label2idx):
+        if label2idx:
 
-        self.label2idx = {}
+            self.label2idx = label2idx
+        else:
+            self.label2idx = {}
 
-        complete_labels = list(zip(*chain.from_iterable(self.labels)))
-        for it, channel in enumerate(complete_labels):
-            # Dumb fix for null and '-' showing up in labels
-            channel = (i for i in set(channel) if i not in ['', '-'])
-            self.label2idx[it] = {label: i for i, label in enumerate(channel)}
+            complete_labels = list(zip(*chain.from_iterable(self.labels)))
+            for it, channel in enumerate(complete_labels):
+                # Dumb fix for null and '-' showing up in labels
+                channel = (i for i in set(channel) if i not in ['', '-'])
+                self.label2idx[it] = {label: i for i, label in enumerate(channel)}
 
         self.idx2label = {
                     k: {vv:kk for kk, vv in v.items()}
@@ -127,13 +136,15 @@ class NERMultiOutput(Dataset):
 
         subword_attention_mask = [self.start_end_attn_val] + token_starts[:self.max_length-2] + [self.start_end_attn_val]
         subword_attention_mask_padded = subword_attention_mask + (self.max_length - len(labels_start_end)) * [0] 
-    
-        input_encoded = self.tokenizer(
-                                [tokens], 
-                                is_split_into_words=True, 
-                                padding='max_length', 
-                                truncation=True,
-                                max_length=self.max_length)
+        try:
+            input_encoded = self.tokenizer(
+                                    [tokens], 
+                                    is_split_into_words=True, 
+                                    padding='max_length', 
+                                    truncation=True,
+                                    max_length=self.max_length)
+        except:
+            pdb.set_trace()
 
         input_encoded['attention_mask'] = [subword_attention_mask_padded]
         input_encoded['labels'] = [labels_start_end_padded]
