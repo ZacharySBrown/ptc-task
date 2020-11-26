@@ -132,3 +132,4 @@ dmypy.json
 scratch/*
 data/*
 **__pycache__
+**lightning_logs
