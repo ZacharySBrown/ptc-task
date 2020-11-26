@@ -15,6 +15,8 @@ from torch.optim import Adam
 import pdb
 from tqdm import tqdm
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 MODEL_NAME_OR_PATH = 'bert-base-cased'
 N_CLASSES = 14
 TRAIN_FILENAME = '../data/train.txt'
@@ -53,9 +55,17 @@ all_trues = []
 for cls in range(model.n_classes):
     all_preds.append([])
     all_trues.append([])
+
+print("Putting model to device")
+
+model = model.to(device)
+
 print("Starting training loop")
 for batch in tqdm(train_dataloader):
     #print(it)
+
+    batch = {k: v.to(device) for k, v in batch.items()}
+
     model.zero_grad()
     it += 1
     preds, loss = model(batch)
@@ -84,8 +94,13 @@ for cls in range(model.n_classes):
     all_preds.append([])
     all_trues.append([])
 print("Starting eval loop")
+
+model.eval()
 for batch in tqdm(val_dataloader):
     #print(it)
+
+    batch = {k: v.to(device) for k, v in batch.items()}
+
     model.zero_grad()
     it += 1
     preds, loss = model(batch)

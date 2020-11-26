@@ -19,7 +19,7 @@ class MultiOutputNER(torch.nn.Module):
         self.hidden_dim = self.bert_model.config.hidden_size
         self.n_classes = n_classes
         self.labels_per_class = labels_per_class # defaults to 5 for BIOLU per class
-
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.loss_function = NLLLoss()
         self.sm = LogSoftmax(dim=2)
         self.classifiers = ModuleList([Linear(self.hidden_dim, labels_per_class) for _ in range(self.n_classes)])
@@ -35,7 +35,7 @@ class MultiOutputNER(torch.nn.Module):
 
         masked_labels = torch.stack(
             [
-                torch.where(attention_mask != 0, labels[:,:,i], -100) 
+                torch.where(attention_mask != 0, labels[:,:,i], torch.tensor(-100).to(self.device)) 
                 for i in range(self.n_classes)
             ], 
         dim=2
